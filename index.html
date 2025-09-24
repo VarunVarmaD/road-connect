@@ -7,16 +7,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="route-selector">
-        <h2>Bus Routes (Punjab)</h2>
-        <p>• <span style="color:blue;">Route 101</span>: Station to Model Town</p>
-        <p>• <span style="color:red;">Route 202</span>: Bus Stand to University</p>
+    <div id="control-panel">
+        <div id="view-mode">
+            <div class="search-container">
+                <div class="input-group">
+                    <span class="icon">📍</span>
+                    <input type="text" id="from-input" placeholder="Enter starting point" autocomplete="off">
+                    <div id="from-dropdown" class="dropdown-content hidden"></div>
+                </div>
+                <div class="input-group">
+                    <span class="icon">🏁</span>
+                    <input type="text" id="to-input" placeholder="Enter destination" autocomplete="off">
+                    <div id="to-dropdown" class="dropdown-content hidden"></div>
+                </div>
+            </div>
+             <div class="rewards-section">🪙 My Rewards: 150 Points</div>
+        </div>
+
+        <div id="tracking-mode" class="hidden">
+            <h4>Tracking New Journey...</h4>
+            <div class="tracker-buttons">
+                <button id="startBtn" class="tracker-btn start">Start</button>
+                <button id="stopBtn" class="tracker-btn stop" disabled>Stop</button>
+            </div>
+        </div>
+        
+        <button id="toggle-mode-btn">Contribute New Route</button>
     </div>
 
     <div id="map"></div>
     
     <script src="script.js"></script>
-    
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA34WpFEM361IehIa4EOZozTXegY_hG2-8&callback=initMap" async defer></script>
 </body>
 </html>
