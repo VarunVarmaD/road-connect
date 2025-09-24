@@ -3,10 +3,13 @@ let map;
 let watchId = null;
 let recordedPath = [];
 let livePolyline = null;
-let drawnRoutePolylines = []; // NEW: To keep track of old routes
+let drawnRoutePolylines = [];
+
+// NEW: Add the URL of your deployed backend here
+const BACKEND_URL = 'https://road-connect.onrender.com'; // IMPORTANT: Replace with your live backend URL
 
 // This is the main function called by Google Maps API
-function initMap() {
+async function initMap() {
     const vizagCenter = { lat: 18.1150, lng: 83.4050 };
     map = new google.maps.Map(document.getElementById("map"), {
         zoom: 14,
@@ -15,23 +18,41 @@ function initMap() {
         zoomControl: true,
     });
 
-    const routes = [ /* ... Your routes data remains the same ... */ ];
-    
-    drawRoutes(routes);
-    setupModeToggle();
-    setupSearchDropdowns(routes);
-    setupTrackingButtons();
+    // UPDATED: Fetch routes from your backend instead of using hardcoded data
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/routes`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const routes = await response.json();
+        
+        // The rest of the app initializes only after data is successfully loaded
+        drawRoutes(routes);
+        setupModeToggle();
+        setupSearchDropdowns(routes);
+        setupTrackingButtons();
+
+    } catch (error) {
+        console.error("Failed to load routes from backend:", error);
+        alert("Could not connect to the server to load bus routes. Please check your connection and try again.");
+    }
 }
 
+// This function draws the routes fetched from the backend
 function drawRoutes(routes) {
     routes.forEach(route => {
-        const routeColor = (c) => c >= 1000 ? 'green' : c >= 100 ? 'orange' : 'red';
-        const path = new google.maps.Polyline({ path: route.stops.map(s => s.location), geodesic: true, strokeColor: routeColor(route.contributions), strokeWeight: 5, strokeOpacity: 0.9 });
-        path.setMap(map);
-        drawnRoutePolylines.push(path); // NEW: Store the path
+        // We need to check if route.stops exists and has data
+        if (route.stops && route.stops.length > 0) {
+            const routeColor = (c) => c >= 1000 ? 'green' : c >= 100 ? 'orange' : 'red';
+            const pathCoordinates = route.stops.map(s => s.location);
+            const path = new google.maps.Polyline({ path: pathCoordinates, geodesic: true, strokeColor: routeColor(route.contributions), strokeWeight: 5, strokeOpacity: 0.9 });
+            path.setMap(map);
+            drawnRoutePolylines.push(path);
+        }
     });
 }
 
+// This function handles switching between search and tracking views
 function setupModeToggle() {
     const viewModeUI = document.getElementById('view-mode');
     const trackingModeUI = document.getElementById('tracking-mode');
@@ -45,18 +66,19 @@ function setupModeToggle() {
             toggleBtn.textContent = 'Contribute New Route';
             map.setTilt(0);
             map.setZoom(14);
-            drawnRoutePolylines.forEach(p => p.setMap(map)); // NEW: Show old routes
+            drawnRoutePolylines.forEach(p => p.setMap(map));
         } else {
             viewModeUI.classList.add('hidden');
             trackingModeUI.classList.remove('hidden');
             toggleBtn.textContent = 'Back to Search';
             map.setTilt(45);
             map.setZoom(19);
-            drawnRoutePolylines.forEach(p => p.setMap(null)); // NEW: Hide old routes
+            drawnRoutePolylines.forEach(p => p.setMap(null));
         }
     });
 }
 
+// This function handles the live GPS tracking
 function setupTrackingButtons() {
     livePolyline = new google.maps.Polyline({ path: [], geodesic: true, strokeColor: '#0000FF', strokeWeight: 5, strokeOpacity: 1.0 });
     livePolyline.setMap(map);
@@ -76,24 +98,39 @@ function setupTrackingButtons() {
         }, () => alert("Geolocation service failed."), { enableHighAccuracy: true });
     });
 
+    // UPDATED: The stop button now sends the data to the backend
     document.getElementById('stopBtn').addEventListener('click', () => {
         document.getElementById('startBtn').disabled = false;
         document.getElementById('stopBtn').disabled = true;
         navigator.geolocation.clearWatch(watchId);
         
-        alert("Thank you! Your route has been recorded.");
-        console.log(JSON.stringify(recordedPath));
-        recordedPath = [];
-        livePolyline.setPath([]); // Clear the blue line
+        // Only send if the path has more than one point
+        if (recordedPath.length > 1) {
+            fetch(`${BACKEND_URL}/api/routes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: recordedPath }) // Send the array of coordinates
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Route saved successfully:', data);
+                alert("Thank you! Your route has been saved.");
+                window.location.reload(); // Reload the page to show the new route
+            })
+            .catch(error => {
+                console.error('Error saving route:', error);
+                alert("Sorry, there was an error saving your route.");
+            });
+        }
         
-        // After stopping, automatically switch back to search view
-        document.getElementById('toggle-mode-btn').click();
+        recordedPath = [];
+        livePolyline.setPath([]);
     });
 }
 
-// The setupSearchDropdowns function remains exactly the same.
+// This function for search dropdowns remains the same
 function setupSearchDropdowns(routes) {
-    const allStops = [...new Set(routes.flatMap(r => r.stops.map(s => s.name)))];
+    const allStops = [...new Set(routes.flatMap(r => (r.stops || []).map(s => s.name)))];
     const fromInput = document.getElementById('from-input');
     const toInput = document.getElementById('to-input');
     const fromDropdown = document.getElementById('from-dropdown');
